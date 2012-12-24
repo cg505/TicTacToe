@@ -181,5 +181,3 @@
           (decf games-left))
     (format t "~%Computer Player 1=~a%~%Computer Player 2=~a%~%Cat=~a%"
       (* 100.00 (/ p1-wins num-games)) (* 100.00 (/ p2-wins num-games)) (* 100.00 (/ cat-wins num-games)))))
-                  
-;; This file at f:\Christopher\personal\tictactoe\tictactoe.cl was 167 lines and 6,586 characters at last save.
