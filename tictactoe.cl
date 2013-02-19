@@ -61,7 +61,7 @@
       (progn (format t "~%Fail. You can't have the same player (p1) be random and smart...~%Assuming you meant smart.")
 	     (setq rand-p1? nil)))
   (if (and ai-p2? rand-p2?)
-      (progn (format t "~%Fail. You can't have the same player (p1) be random and smart...~%Assuming you meant smart.")
+      (progn (format t "~%Fail. You can't have the same player (p2) be random and smart...~%Assuming you meant smart.")
 	     (setq rand-p2? nil)))
   (let ((board (make-array '(3 3) :initial-element " ")))
     (loop until (game-over-all? board)
