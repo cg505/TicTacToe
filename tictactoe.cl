@@ -32,7 +32,7 @@
     (let ((vert (read)))
       (if (legal-move? horiz vert board)
           (set-board-after-move symbol board (- horiz 1) (- vert 1) formats)
-        (progn (format formats "~%Illegal move.  Try again.")
+        (progn (format formats "~%Illegal move. Try again.")
           (move player symbol board formats))))))
         
         
@@ -52,31 +52,29 @@
              
 (defun play (&key (player1 "Player 1")
                   (player2 "Player 2")
-                  (ai-p1? nil)
-                  (ai-p2? nil)
-		  (rand-p1? nil)
-		  (rand-p2? nil)
+                  (p1-type 'human)
+                  (p2-type 'human)
                   (formats t))
-  (if (and ai-p1? rand-p1?)
-      (progn (format t "~%Fail. You can't have the same player (p1) be random and smart...~%Assuming you meant smart.")
-	     (setq rand-p1? nil)))
-  (if (and ai-p2? rand-p2?)
-      (progn (format t "~%Fail. You can't have the same player (p1) be random and smart...~%Assuming you meant smart.")
-	     (setq rand-p2? nil)))
   (let ((board (make-array '(3 3) :initial-element " ")))
     (loop until (game-over-all? board)
-        do (if (or rand-p1? ai-p1?)
-               (progn (format formats "~%I'm thinking...")
-		      (if ai-p1?
-			  (let ((ai-move (second (min-max-value board t))))
-			    (move-ai player1 'X board ai-move formats)))
-		      (if rand-p1?
-			  (move-rand player1 'X board formats)))
-             (move player1 'X board formats))
+          (case p1-type
+            ('ai
+             (format formats "~%I'm thinking...")
+             (let ((ai-move (second (min-max-value board t nil))))
+               (move-ai player1 'X board ai-move formats)))
+            ('rand
+             (format formats "~%I'm thinking...")
+             (move-rand player1 'X board formats))
+            ('sum
+             (format formats "~%I'm thinking...")
+             (let ((ai-move (second (min-max-value board t t))))
+               (move-ai player1 'X board ai-move formats)))
+            ('human
+             (move player1 'X board formats)))
         until (game-over-all? board)
         do (if (or rand-p2? ai-p2?)
                (progn (format formats "~%I'm thinking...")
-		      (let ((ai-move (second (min-max-value board nil))))
+		      (let ((ai-move (second (min-max-value board nil nil))))
 			(move-ai player2 'O board ai-move formats)))
              (move player2 'O board formats)))
     (if (game-over? board 'X)
@@ -86,7 +84,7 @@
           (progn (format t "~%~a wins!"
 			 player2) 2)
         (if (game-over-cats? board)
-            (progn (format t "~%It's a cat's game!  No one wins!") nil)
+            (progn (format t "~%It's a cat's game! No one wins!") nil)
           (format t "~%What? The game's over? It doesn't seem like it!"))))))
 
 (defun legal-move? (horiz vert board)
@@ -100,8 +98,8 @@
           (eq (aref board (- vert 1) (- horiz 1)) 'O))
       nil
     t))
-  
-(DEFUN min-max-value (board max?)
+
+(DEFUN min-max-value (board max? sum?)
   (if (game-over-all? board)
       (if (game-over-mm? board t)
           (list 1)
@@ -109,17 +107,25 @@
             (list -1)
           (list 0)))
     (let ((best-move nil)
-          (best-value (if max? -2 2))
-          (moves (get-moves board)))
+          (best-value (if sum? 0 (if max? -2 2)))
+          (moves (get-moves board))
+          (sum 0))
       (dolist (move moves)
         (play-move board move (if max? 'X 'O))
-        (let ((move-value (first (min-max-value board (not max?)))))
-          (when (or (and (= move-value best-value) (= (random 2) 0))
-                    (funcall (if max? #'> #'<) move-value best-value))
-            (setf best-value move-value)
-            (setf best-move move))
+        (let* ((move-info (min-max-value board (not max?) sum?))
+               (move-value (first move-info)))
+          (if sum?
+              (progn (setf sum (+ sum (third move-info)))
+                     (when (or (and (= move-value best-value) (= (random 2) 0))
+                               (funcall (if max? #'> #'<) move-value best-value))
+                       (setf best-value move-value)
+                       (setf best-move move)))
+            (when (or (and (= move-value best-value) (= (random 2) 0))
+                      (funcall (if max? #'> #'<) move-value best-value))
+              (setf best-value move-value)
+              (setf best-move move)))
           (undo-move board move)))
-      (list best-value best-move))))
+      (list best-value best-move sum))))
 
 (defun game-over-mm? (board max?)
   (if max?
@@ -133,7 +139,7 @@
     player (+ 1 horiz) (+ 1 vert))
       (if (legal-move? (+ 1 horiz) (+ 1 vert) board)
           (set-board-after-move symbol board horiz vert formats)
-        (format formats "~%Illegal move.  Try again."))))
+        (format formats "~%Illegal move. Try again."))))
 
 (defun move-rand (player symbol board formats)
   (let ((horiz (random 3))
@@ -142,7 +148,7 @@
       player (+ 1 horiz) (+ 1 vert))
     (if (legal-move? (+ 1 horiz) (+ 1 vert) board)
         (set-board-after-move symbol board horiz vert formats)
-      (progn (format formats "Illegal move.  Try again.")
+      (progn (format formats "Illegal move. Try again.")
         (move-rand player symbol board formats)))))
 
 (defun play-move (board move symbol)
@@ -173,7 +179,7 @@
         (cat-wins 0)
         (games-left num-games))
     (loop until (= games-left 0)
-        do (let ((winner (play :ai-p1? t :ai-p2? t :formats nil)))
+        do (let ((winner (play :rand-p1? t :rand-p2? t :formats nil)))
              (if (and (numberp winner) (= winner 1))
                  (incf p1-wins)
                (if (and (numberp winner) (= winner 2))
@@ -182,5 +188,3 @@
           (decf games-left))
     (format t "~%Computer Player 1 = ~a%~%Computer Player 2 = ~a%~%Cat = ~a%"
       (* 100.00 (/ p1-wins num-games)) (* 100.00 (/ p2-wins num-games)) (* 100.00 (/ cat-wins num-games)))))
-                  
-;; This file at f:\Christopher\personal\tictactoe\tictactoe.cl was 167 lines and 6,586 characters at last save.
