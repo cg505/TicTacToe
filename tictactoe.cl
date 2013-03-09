@@ -27,11 +27,11 @@
 (defun move (player symbol board formats)
   (format formats "~%~a's turn~%Enter horizontal cordinate: "
     player)
-  (let ((horiz (- (read) 1)))
+  (let ((horiz (read)))
     (format t "Enter vertical cordinate: ")
-    (let ((vert (- (read) 1)))
+    (let ((vert (read)))
       (if (legal-move? horiz vert board)
-          (set-board-after-move symbol board horiz vert formats)
+          (set-board-after-move symbol board (- horiz 1) (- vert 1) formats)
         (progn (format formats "~%Illegal move.  Try again.")
           (move player symbol board formats))))))
         
@@ -92,12 +92,14 @@
 (defun legal-move? (horiz vert board)
   (if (or (not (numberp vert))
           (not (numberp horiz))
-          (> horiz 2)
-          (> vert 2))
-      (eq (aref board vert horiz) 'X)
-    (eq (aref board vert horiz) 'O))
-  nil
-  t)
+          (> horiz 3)
+          (> vert 3)
+          (< horiz 1)
+          (< vert 1)
+          (eq (aref board (- vert 1) (- horiz 1)) 'X)
+          (eq (aref board (- vert 1) (- horiz 1)) 'O))
+      nil
+    t))
   
 (DEFUN min-max-value (board max?)
   (if (game-over-all? board)
@@ -129,20 +131,19 @@
         (vert (second move)))
   (format formats "~%~a (CPU) played (~a,~a).~%"
     player (+ 1 horiz) (+ 1 vert))
-      (if (legal-move? horiz vert board)
+      (if (legal-move? (+ 1 horiz) (+ 1 vert) board)
           (set-board-after-move symbol board horiz vert formats)
-        (progn (format formats "~%Illegal move.  Try again.")
-          (move player symbol board formats)))))
+        (format formats "~%Illegal move.  Try again."))))
 
 (defun move-rand (player symbol board formats)
   (let ((horiz (random 3))
         (vert (random 3)))
     (format formats "~%~a plays (~a,~a)"
       player (+ 1 horiz) (+ 1 vert))
-    (if (legal-move? horiz vert board)
+    (if (legal-move? (+ 1 horiz) (+ 1 vert) board)
         (set-board-after-move symbol board horiz vert formats)
       (progn (format formats "Illegal move.  Try again.")
-        (mover player symbol board formats)))))
+        (move-rand player symbol board formats)))))
 
 (defun play-move (board move symbol)
   (let ((horiz (first move))
@@ -179,7 +180,7 @@
                    (incf p2-wins)
                  (incf cat-wins))))
           (decf games-left))
-    (format t "~%Computer Player 1=~a%~%Computer Player 2=~a%~%Cat=~a%"
+    (format t "~%Computer Player 1 = ~a%~%Computer Player 2 = ~a%~%Cat = ~a%"
       (* 100.00 (/ p1-wins num-games)) (* 100.00 (/ p2-wins num-games)) (* 100.00 (/ cat-wins num-games)))))
                   
 ;; This file at f:\Christopher\personal\tictactoe\tictactoe.cl was 167 lines and 6,586 characters at last save.
