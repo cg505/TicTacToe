@@ -25,20 +25,20 @@
       (game-over-cats? board)))
 
 (defun move (player symbol board formats)
-  (format formats "~%~a's turn~%Enter horizontal cordinate: "
+  (format formats "~a's turn~%Enter horizontal cordinate: "
     player)
   (let ((horiz (read)))
     (format t "Enter vertical cordinate: ")
     (let ((vert (read)))
       (if (legal-move? horiz vert board)
           (set-board-after-move symbol board (- horiz 1) (- vert 1) formats)
-        (progn (format formats "~%Illegal move. Try again.")
+        (progn (format formats "Illegal move. Try again.~%")
           (move player symbol board formats))))))
         
         
 (defun set-board-after-move (symbol board horiz vert formats) 
   (progn (setf (aref board vert horiz) symbol)
-    (format formats "~a | ~a | ~a~%---------~%~a | ~a | ~a~%---------~%~a | ~a | ~a"
+    (format formats "~a | ~a | ~a~%---------~%~a | ~a | ~a~%---------~%~a | ~a | ~a~%"
       (aref board 0 0)
       (aref board 0 1)
       (aref board 0 2)
@@ -57,35 +57,53 @@
                   (formats t))
   (let ((board (make-array '(3 3) :initial-element " ")))
     (loop until (game-over-all? board)
-          (case p1-type
-            ('ai
-             (format formats "~%I'm thinking...")
-             (let ((ai-move (second (min-max-value board t nil))))
-               (move-ai player1 'X board ai-move formats)))
-            ('rand
-             (format formats "~%I'm thinking...")
-             (move-rand player1 'X board formats))
-            ('sum
-             (format formats "~%I'm thinking...")
-             (let ((ai-move (second (min-max-value board t t))))
-               (move-ai player1 'X board ai-move formats)))
-            ('human
-             (move player1 'X board formats)))
-        until (game-over-all? board)
-        do (if (or rand-p2? ai-p2?)
-               (progn (format formats "~%I'm thinking...")
-		      (let ((ai-move (second (min-max-value board nil nil))))
-			(move-ai player2 'O board ai-move formats)))
-             (move player2 'O board formats)))
+          do (case p1-type
+               (ai
+                (format formats "I'm thinking...~%")
+                (let ((ai-move (second (min-max-value board t nil))))
+                  (move-ai player1 'X board ai-move formats)))
+               (sum
+                (format formats "I'm thinking...~%")
+                (let ((ai-move (second (min-max-value board t t))))
+                  (move-ai player1 'X board ai-move formats)))
+               (rand
+                (format formats "I'm thinking...~%")
+                (move-rand player1 'X board formats))
+               (human
+                (move player1 'X board formats))
+               (otherwise
+                (format t "\"~a\" is not a valid player type. Way to go.~%" p1-type)
+                (return)))
+          until (game-over-all? board)
+          do (case p2-type
+               (ai
+                (format formats "I'm thinking...~%")
+                (let ((ai-move (second (min-max-value board nil nil))))
+                  (move-ai player1 'O board ai-move formats)))
+               (sum
+                (format formats "I'm thinking...~%")
+                (let ((ai-move (second (min-max-value board nil t))))
+                  (move-ai player1 'O board ai-move formats)))
+               (rand
+                (format formats "I'm thinking...~%")
+                (move-rand player1 'O board formats))
+               (human
+                (move player1 'O board formats))
+               (otherwise
+                (format t "\"~a\" is not a valid player type. Way to go.~%" p2-type)
+                (return)))
+          until (game-over-all? board))
     (if (game-over? board 'X)
-        (progn (format t "~%~a wins!"
+        (progn (format t "~a wins!~%"
 		       player1) 1)
       (if (game-over? board 'O)
-          (progn (format t "~%~a wins!"
+          (progn (format t "~a wins!~%"
 			 player2) 2)
         (if (game-over-cats? board)
-            (progn (format t "~%It's a cat's game! No one wins!") nil)
-          (format t "~%What? The game's over? It doesn't seem like it!"))))))
+            (progn (format t "It's a cat's game! No one wins!~%") nil)
+          (progn
+            (format t "Something's wrong. I've hit an end state with no winner!~%Here's a friendly (break).~%")
+            (break "End state found but no winner awarded.")))))))
 
 (defun legal-move? (horiz vert board)
   (if (or (not (numberp vert))
@@ -102,12 +120,12 @@
 (DEFUN min-max-value (board max? sum?)
   (if (game-over-all? board)
       (if (game-over-mm? board t)
-          (list 1)
+          (list 1 nil 1)
         (if (game-over-mm? board nil)
-            (list -1)
-          (list 0)))
+            (list -1 nil -1)
+          (list 0 nil 0)))
     (let ((best-move nil)
-          (best-value (if sum? 0 (if max? -2 2)))
+          (best-value (if sum? (if max? -9 9) (if max? -2 2)))
           (moves (get-moves board))
           (sum 0))
       (dolist (move moves)
@@ -135,20 +153,20 @@
 (defun move-ai (player symbol board move formats)
   (let ((horiz (first move))
         (vert (second move)))
-  (format formats "~%~a (CPU) played (~a,~a).~%"
+  (format formats "~a (CPU) played (~a,~a).~%"
     player (+ 1 horiz) (+ 1 vert))
       (if (legal-move? (+ 1 horiz) (+ 1 vert) board)
           (set-board-after-move symbol board horiz vert formats)
-        (format formats "~%Illegal move. Try again."))))
+        (format formats "Illegal move. Try again.~%"))))
 
 (defun move-rand (player symbol board formats)
   (let ((horiz (random 3))
         (vert (random 3)))
-    (format formats "~%~a plays (~a,~a)"
+    (format formats "~a plays (~a,~a)~%"
       player (+ 1 horiz) (+ 1 vert))
     (if (legal-move? (+ 1 horiz) (+ 1 vert) board)
         (set-board-after-move symbol board horiz vert formats)
-      (progn (format formats "Illegal move. Try again.")
+      (progn (format formats "Illegal move. Try again.~%")
         (move-rand player symbol board formats)))))
 
 (defun play-move (board move symbol)
@@ -173,18 +191,19 @@
 (defun move-value (move board)
   (aref board (second move) (first move)))
 
-(defun lots-smart (num-games)
+(defun lots-smart (num-games &key (p1-type 'ai)
+                                  (p2-type 'ai))
   (let ((p1-wins 0)
         (p2-wins 0)
         (cat-wins 0)
         (games-left num-games))
     (loop until (= games-left 0)
-        do (let ((winner (play :rand-p1? t :rand-p2? t :formats nil)))
+        do (let ((winner (play :p1-type p1-type :p2-type p2-type :formats nil)))
              (if (and (numberp winner) (= winner 1))
                  (incf p1-wins)
                (if (and (numberp winner) (= winner 2))
                    (incf p2-wins)
                  (incf cat-wins))))
           (decf games-left))
-    (format t "~%Computer Player 1 = ~a%~%Computer Player 2 = ~a%~%Cat = ~a%"
+    (format t "Computer Player 1 = ~a%~%Computer Player 2 = ~a%~%Cat = ~a%~%"
       (* 100.00 (/ p1-wins num-games)) (* 100.00 (/ p2-wins num-games)) (* 100.00 (/ cat-wins num-games)))))
