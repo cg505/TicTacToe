@@ -83,7 +83,7 @@
         (done? t))
     (loop until (= i x)
           do (loop until (= j y)
-                   do (if (eq (aref board i j) " ")
+                   do (if (eq (aref board i j) 0)
                           (setf done? nil))
                       (incf j))
              (incf i)
@@ -91,57 +91,81 @@
     done?))
 
 (defun game-over-all? (board)
-  (or (game-over? board 'X)
-      (game-over? board 'O)
+  (or (game-over? board 1)
+      (game-over? board 2)
       (game-over-cats? board)))
 
-(defun move (player symbol board formats)
+(defun move (player symbol board formats symbol-hash)
   (format formats "~a's turn~%Enter horizontal cordinate: "
     player)
   (let ((horiz (read)))
     (format t "Enter vertical cordinate: ")
     (let ((vert (read)))
       (if (legal-move? horiz vert board)
-          (set-board-after-move symbol board (- horiz 1) (- vert 1) formats)
+          (set-board-after-move symbol board (- horiz 1) (- vert 1) formats symbol-hash)
         (progn (format formats "Illegal move. Try again.~%")
-          (move player symbol board formats))))))
+          (move player symbol board formats symbol-hash))))))
         
         
-(defun set-board-after-move (symbol board horiz vert formats) 
-  (progn (setf (aref board vert horiz) symbol)
-    (format formats "~a | ~a | ~a~%---------~%~a | ~a | ~a~%---------~%~a | ~a | ~a~%"
-      (aref board 0 0)
-      (aref board 0 1)
-      (aref board 0 2)
-      (aref board 1 0)
-      (aref board 1 1)
-      (aref board 1 2)
-      (aref board 2 0)
-      (aref board 2 1)
-      (aref board 2 2))))
-   
+(defun render-board (board hash formats)
+  (let ((x (- (array-dimension board 0) 1))
+        (y (- (array-dimension board 1) 1))
+        (i 0)
+        (j 0))
+    (loop
+     do (loop 
+         do (format formats "~a" (gethash (aref board i j) hash))
+         until (= j y)
+         do (format formats " | ")
+            (incf j))
+     until (= i x)
+     do (format formats "~%---------~%")
+        (setf j 0)
+        (incf i)))
+  (format formats "~%"))
+
+(defun set-board-after-move (symbol board horiz vert formats symbol-hash) 
+  (setf (aref board vert horiz) symbol)
+    ;; (format formats "~a | ~a | ~a~%---------~%~a | ~a | ~a~%---------~%~a | ~a | ~a~%"
+    ;;   (aref board 0 0)
+    ;;   (aref board 0 1)
+    ;;   (aref board 0 2)
+    ;;   (aref board 1 0)
+    ;;   (aref board 1 1)
+    ;;   (aref board 1 2)
+    ;;   (aref board 2 0)
+    ;;   (aref board 2 1)
+    ;;   (aref board 2 2))))
+  (render-board board symbol-hash formats))
              
 (defun play (&key (player1 "Player 1")
                   (player2 "Player 2")
                   (p1-type 'human)
                   (p2-type 'human)
+                  (p1-symbol 'X)
+                  (p2-symbol 'O)
+                  (blank-symbol " ")
                   (formats t))
-  (let ((board (make-array '(3 3) :initial-element " ")))
+  (let ((board (make-array '(3 3) :initial-element 0))
+        (symbol-hash (make-hash-table)))
+    (setf (gethash 0 symbol-hash) blank-symbol)
+    (setf (gethash 1 symbol-hash) p1-symbol)
+    (setf (gethash 2 symbol-hash) p2-symbol)
     (loop until (game-over-all? board)
           do (case p1-type
                (ai
                 (format formats "I'm thinking...~%")
                 (let ((ai-move (second (min-max-value board t nil))))
-                  (move-ai player1 'X board ai-move formats)))
+                  (move-ai player1 1 board ai-move formats symbol-hash)))
                (sum
                 (format formats "I'm thinking...~%")
                 (let ((ai-move (second (min-max-value board t t))))
-                  (move-ai player1 'X board ai-move formats)))
+                  (move-ai player1 1 board ai-move formats symbol-hash)))
                (rand
                 (format formats "I'm thinking...~%")
-                (move-rand player1 'X board formats))
+                (move-rand player1 1 board formats symbol-hash))
                (human
-                (move player1 'X board formats))
+                (move player1 1 board formats symbol-hash))
                (otherwise
                 (format t "\"~a\" is not a valid player type. Way to go.~%" p1-type)
                 (return)))
@@ -150,24 +174,24 @@
                (ai
                 (format formats "I'm thinking...~%")
                 (let ((ai-move (second (min-max-value board nil nil))))
-                  (move-ai player1 'O board ai-move formats)))
+                  (move-ai player1 2 board ai-move formats symbol-hash)))
                (sum
                 (format formats "I'm thinking...~%")
                 (let ((ai-move (second (min-max-value board nil t))))
-                  (move-ai player1 'O board ai-move formats)))
+                  (move-ai player1 2 board ai-move formats symbol-hash)))
                (rand
                 (format formats "I'm thinking...~%")
-                (move-rand player1 'O board formats))
+                (move-rand player1 2 board formats symbol-hash))
                (human
-                (move player1 'O board formats))
+                (move player1 2 board formats symbol-hash))
                (otherwise
                 (format t "\"~a\" is not a valid player type. Way to go.~%" p2-type)
                 (return)))
           until (game-over-all? board))
-    (if (game-over? board 'X)
+    (if (game-over? board 1)
         (progn (format t "~a wins!~%"
 		       player1) 1)
-      (if (game-over? board 'O)
+      (if (game-over? board 2)
           (progn (format t "~a wins!~%"
 			 player2) 2)
         (if (game-over-cats? board)
@@ -183,8 +207,8 @@
           (> vert 3)
           (< horiz 1)
           (< vert 1)
-          (eq (aref board (- vert 1) (- horiz 1)) 'X)
-          (eq (aref board (- vert 1) (- horiz 1)) 'O))
+          (eq (aref board (- vert 1) (- horiz 1)) 1)
+          (eq (aref board (- vert 1) (- horiz 1)) 2))
       nil
     t))
 
@@ -202,7 +226,7 @@
           (moves (get-moves board))
           (sum 0))
       (dolist (move moves)
-        (play-move board move (if max? 'X 'O))
+        (play-move board move (if max? 1 2))
         (let* ((move-info (min-max-value board (not max?) sum?))
                (move-value (first move-info)))
           (if sum?
@@ -220,27 +244,27 @@
 
 (defun game-over-mm? (board max?)
   (if max?
-      (game-over? board 'X)
-    (game-over? board 'O)))
+      (game-over? board 1)
+    (game-over? board 2)))
 
-(defun move-ai (player symbol board move formats)
+(defun move-ai (player symbol board move formats symbol-hash)
   (let ((horiz (first move))
         (vert (second move)))
   (format formats "~a (CPU) played (~a,~a).~%"
     player (+ 1 horiz) (+ 1 vert))
       (if (legal-move? (+ 1 horiz) (+ 1 vert) board)
-          (set-board-after-move symbol board horiz vert formats)
+          (set-board-after-move symbol board horiz vert formats symbol-hash)
         (format formats "Illegal move. Try again.~%"))))
 
-(defun move-rand (player symbol board formats)
+(defun move-rand (player symbol board formats symbol-hash)
   (let ((horiz (random 3))
         (vert (random 3)))
     (format formats "~a plays (~a,~a)~%"
       player (+ 1 horiz) (+ 1 vert))
     (if (legal-move? (+ 1 horiz) (+ 1 vert) board)
-        (set-board-after-move symbol board horiz vert formats)
+        (set-board-after-move symbol board horiz vert formats symbol-hash)
       (progn (format formats "Illegal move. Try again.~%")
-        (move-rand player symbol board formats)))))
+        (move-rand player symbol board formats symbol-hash)))))
 
 (defun play-move (board move symbol)
   (let ((horiz (first move))
@@ -250,14 +274,14 @@
 (defun undo-move (board move)
   (let ((horiz (first move))
         (vert (second move)))
-    (setf (aref board vert horiz) " ")))
+    (setf (aref board vert horiz) 0)))
   
 (defun get-moves (board)
   (let ((possible-moves nil))
     (dotimes (horiz 3)
       (dotimes (vert 3)
-        (if (not (or (eq (aref board vert horiz) 'O)
-                     (eq (aref board vert horiz) 'X)))
+        (if (not (or (eq (aref board vert horiz) 2)
+                     (eq (aref board vert horiz) 1)))
             (push (list horiz vert) possible-moves))))
     possible-moves))
 
